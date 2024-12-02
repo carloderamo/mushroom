@@ -67,9 +67,7 @@ class LinearApproximator(Serializable):
         """
         phi = np.atleast_2d(self.phi(x))
 
-        prediction = np.ones((phi.shape[0], self._w.shape[0]))
-        for i, phi_i in enumerate(phi):
-            prediction[i] = phi_i.dot(self._w.T)
+        prediction = np.matmul(phi, self._w.T)
 
         return prediction
 
