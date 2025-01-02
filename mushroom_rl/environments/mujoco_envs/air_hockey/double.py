@@ -5,21 +5,38 @@ from mushroom_rl.rl_utils.spaces import Box
 from mushroom_rl.environments.mujoco_envs.air_hockey.base import AirHockeyBase
 from mushroom_rl.utils.mujoco import forward_kinematics
 
+
 class AirHockeyDouble(AirHockeyBase):
     """
     Base class for two agents air hockey tasks.
 
     """
-    def __init__(self, gamma=0.99, horizon=120, env_noise=False, obs_noise=False, timestep=1 / 240.,
-                 n_intermediate_steps=1, **viewer_params):
 
+    def __init__(
+        self,
+        gamma=0.99,
+        horizon=120,
+        env_noise=False,
+        obs_noise=False,
+        timestep=1 / 240.0,
+        n_intermediate_steps=1,
+        **viewer_params,
+    ):
         """
         Constructor.
 
         """
         self.init_state = np.array([-0.9273, 0.9273, np.pi / 2])
-        super().__init__(gamma=gamma, horizon=horizon, env_noise=env_noise, n_agents=2, obs_noise=obs_noise,
-                         timestep=timestep, n_intermediate_steps=n_intermediate_steps, **viewer_params)
+        super().__init__(
+            gamma=gamma,
+            horizon=horizon,
+            env_noise=env_noise,
+            n_agents=2,
+            obs_noise=obs_noise,
+            timestep=timestep,
+            n_intermediate_steps=n_intermediate_steps,
+            **viewer_params,
+        )
 
         # Remove z position and quaternion from puck pos
         self.obs_helper.remove_obs("puck_pos", 2)
@@ -68,14 +85,26 @@ class AirHockeyDouble(AirHockeyBase):
 
     def _modify_observation(self, obs):
         new_obs = obs.copy()
-        self._puck_2d_in_robot_frame(self.obs_helper.get_from_obs(new_obs, "puck_pos"), self.agents[0]["frame"])
+        self._puck_2d_in_robot_frame(
+            self.obs_helper.get_from_obs(new_obs, "puck_pos"), self.agents[0]["frame"]
+        )
 
-        self._puck_2d_in_robot_frame(self.obs_helper.get_from_obs(new_obs, "puck_vel"), self.agents[0]["frame"], type='vel')
+        self._puck_2d_in_robot_frame(
+            self.obs_helper.get_from_obs(new_obs, "puck_vel"),
+            self.agents[0]["frame"],
+            type="vel",
+        )
 
-        self._puck_2d_in_robot_frame(self.obs_helper.get_from_obs(new_obs, "robot_2/puck_pos"), self.agents[1]["frame"])
+        self._puck_2d_in_robot_frame(
+            self.obs_helper.get_from_obs(new_obs, "robot_2/puck_pos"),
+            self.agents[1]["frame"],
+        )
 
-        self._puck_2d_in_robot_frame(self.obs_helper.get_from_obs(new_obs, "robot_2/puck_vel"), self.agents[1]["frame"],
-                                     type='vel')
+        self._puck_2d_in_robot_frame(
+            self.obs_helper.get_from_obs(new_obs, "robot_2/puck_vel"),
+            self.agents[1]["frame"],
+            type="vel",
+        )
 
         if self.obs_noise:
             noise = np.random.randn(2) * 0.001
@@ -93,10 +122,14 @@ class AirHockeyDouble(AirHockeyBase):
         self.has_bounce = False
 
         for i in range(3):
-            self._data.joint("planar_robot_1/joint_" + str(i+1)).qpos = self.init_state[i]
+            self._data.joint("planar_robot_1/joint_" + str(i + 1)).qpos = (
+                self.init_state[i]
+            )
 
         for i in range(3):
-            self._data.joint("planar_robot_2/joint_" + str(i+1)).qpos = self.init_state[i]
+            self._data.joint("planar_robot_2/joint_" + str(i + 1)).qpos = (
+                self.init_state[i]
+            )
 
         super().setup(obs)
         mujoco.mj_fwdPosition(self._model, self._data)
@@ -115,15 +148,17 @@ class AirHockeyDouble(AirHockeyBase):
         obs = super(AirHockeyDouble, self)._create_observation(state)
         return np.append(obs, [self.robot_1_hit, self.robot_2_hit, self.has_bounce])
 
-    def _create_info_dictionary(self, obs):
-        constraints = {"agent-1": {}, "agent-2":{}}
+    def _create_info_dictionary(self, obs, action):
+        constraints = {"agent-1": {}, "agent-2": {}}
 
         for i, key in enumerate(constraints.keys()):
 
-            q_pos = self.obs_helper.get_joint_pos_from_obs(obs)[i * 3: (i+1) * 3]
-            q_vel = self.obs_helper.get_joint_vel_from_obs(obs)[i * 3: (i+1) * 3]
+            q_pos = self.obs_helper.get_joint_pos_from_obs(obs)[i * 3 : (i + 1) * 3]
+            q_vel = self.obs_helper.get_joint_vel_from_obs(obs)[i * 3 : (i + 1) * 3]
 
-            x_pos, _ = forward_kinematics(self.robot_model, self.robot_data, q_pos, "planar_robot_1/body_ee")
+            x_pos, _ = forward_kinematics(
+                self.robot_model, self.robot_data, q_pos, "planar_robot_1/body_ee"
+            )
 
             # Translate to table space
             ee_pos = x_pos + self.agents[0]["frame"][:3, 3]
@@ -131,33 +166,48 @@ class AirHockeyDouble(AirHockeyBase):
             # ee_constraint: force the ee to stay within the bounds of the table
             # 1 Dimension on x direction: x > x_lb
             # 2 Dimension on y direction: y > y_lb, y < y_ub
-            x_lb = - (self.env_spec['table']['length'] / 2 + self.env_spec['mallet']['radius'])
-            y_lb = - (self.env_spec['table']['width'] / 2 - self.env_spec['mallet']['radius'])
-            y_ub = (self.env_spec['table']['width'] / 2 - self.env_spec['mallet']['radius'])
+            x_lb = -(
+                self.env_spec["table"]["length"] / 2 + self.env_spec["mallet"]["radius"]
+            )
+            y_lb = -(
+                self.env_spec["table"]["width"] / 2 - self.env_spec["mallet"]["radius"]
+            )
+            y_ub = (
+                self.env_spec["table"]["width"] / 2 - self.env_spec["mallet"]["radius"]
+            )
 
-            constraints[key]["ee_constraints"] = np.array([-ee_pos[0] + x_lb,
-                                                           -ee_pos[1] + y_lb, ee_pos[1] - y_ub])
+            constraints[key]["ee_constraints"] = np.array(
+                [-ee_pos[0] + x_lb, -ee_pos[1] + y_lb, ee_pos[1] - y_ub]
+            )
 
             # joint_pos_constraint: stay within the robots joint position limits
             constraints[key]["joint_pos_constraints"] = np.zeros(6)
-            constraints[key]["joint_pos_constraints"][:3] = q_vel - self.obs_helper.get_joint_pos_limits()[1][i * 3: (i+1) * 3]
-            constraints[key]["joint_pos_constraints"][3:] = self.obs_helper.get_joint_pos_limits()[0][i * 3: (i+1) * 3] - q_vel
+            constraints[key]["joint_pos_constraints"][:3] = (
+                q_vel - self.obs_helper.get_joint_pos_limits()[1][i * 3 : (i + 1) * 3]
+            )
+            constraints[key]["joint_pos_constraints"][3:] = (
+                self.obs_helper.get_joint_pos_limits()[0][i * 3 : (i + 1) * 3] - q_vel
+            )
 
             # joint_vel_constraint: stay within the robots joint velocity limits
             constraints[key]["joint_vel_constraints"] = np.zeros(6)
-            constraints[key]["joint_vel_constraints"][:3] = q_vel - self.obs_helper.get_joint_vel_limits()[1][i * 3: (i+1) * 3]
-            constraints[key]["joint_vel_constraints"][3:] = self.obs_helper.get_joint_vel_limits()[0][i * 3: (i+1) * 3] - q_vel
+            constraints[key]["joint_vel_constraints"][:3] = (
+                q_vel - self.obs_helper.get_joint_vel_limits()[1][i * 3 : (i + 1) * 3]
+            )
+            constraints[key]["joint_vel_constraints"][3:] = (
+                self.obs_helper.get_joint_vel_limits()[0][i * 3 : (i + 1) * 3] - q_vel
+            )
 
         return constraints
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     env = AirHockeyDouble(env_noise=False, obs_noise=False, n_intermediate_steps=4)
 
     env.reset()
-    R = 0.
-    J = 0.
-    gamma = 1.
+    R = 0.0
+    J = 0.0
+    gamma = 1.0
     steps = 0
     while True:
         action = np.random.randn(6) * 5
@@ -169,8 +219,8 @@ if __name__ == '__main__':
         steps += 1
         if done or steps > env.info.horizon:
             print("J: ", J, " R: ", R)
-            R = 0.
-            J = 0.
-            gamma = 1.
+            R = 0.0
+            J = 0.0
+            gamma = 1.0
             steps = 0
             env.reset()

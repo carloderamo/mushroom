@@ -11,9 +11,21 @@ class MuJoCo(Environment):
     Class to create a Mushroom environment using the MuJoCo simulator.
     """
 
-    def __init__(self, xml_file, actuation_spec, observation_spec, gamma, horizon, timestep=None, n_substeps=1,
-                 n_intermediate_steps=1, additional_data_spec=None, collision_groups=None, max_joint_vel=None,
-                 **viewer_params):
+    def __init__(
+        self,
+        xml_file,
+        actuation_spec,
+        observation_spec,
+        gamma,
+        horizon,
+        timestep=None,
+        n_substeps=1,
+        n_intermediate_steps=1,
+        additional_data_spec=None,
+        collision_groups=None,
+        max_joint_vel=None,
+        **viewer_params,
+    ):
         """
         Constructor.
 
@@ -66,13 +78,17 @@ class MuJoCo(Environment):
 
         # Read the actuation spec and build the mapping between actions and ids
         # as well as their limits
-        self._action_indices = self.get_action_indices(self._model, self._data, actuation_spec)
+        self._action_indices = self.get_action_indices(
+            self._model, self._data, actuation_spec
+        )
 
         action_space = self.get_action_space(self._action_indices, self._model)
 
         # Read the observation spec to build a mapping at every step. It is
         # ensured that the values appear in the order they are specified.
-        self.obs_helper = ObservationHelper(observation_spec, self._model, self._data, max_joint_velocity=max_joint_vel)
+        self.obs_helper = ObservationHelper(
+            observation_spec, self._model, self._data, max_joint_velocity=max_joint_vel
+        )
 
         observation_space = Box(*self.obs_helper.get_obs_limits())
 
@@ -89,8 +105,12 @@ class MuJoCo(Environment):
             for name, geom_names in collision_groups:
                 col_group = list()
                 for geom_name in geom_names:
-                    mj_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_GEOM, geom_name)
-                    assert mj_id != -1, f"geom \"{geom_name}\" not found! Can't be used for collision-checking."
+                    mj_id = mujoco.mj_name2id(
+                        self._model, mujoco.mjtObj.mjOBJ_GEOM, geom_name
+                    )
+                    assert (
+                        mj_id != -1
+                    ), f'geom "{geom_name}" not found! Can\'t be used for collision-checking.'
                     col_group.append(mj_id)
                 self.collision_groups[name] = set(col_group)
 
@@ -119,7 +139,9 @@ class MuJoCo(Environment):
         mujoco.mj_resetData(self._model, self._data)
         self.setup(obs)
 
-        self._obs = self._create_observation(self.obs_helper._build_obs(self._model, self._data))
+        self._obs = self._create_observation(
+            self.obs_helper._build_obs(self._model, self._data)
+        )
         return self._modify_observation(self._obs), {}
 
     def step(self, action):
@@ -144,16 +166,20 @@ class MuJoCo(Environment):
             self._simulation_post_step()
 
             if self._recompute_action_per_step:
-                cur_obs = self._create_observation(self.obs_helper._build_obs(self._model, self._data))
+                cur_obs = self._create_observation(
+                    self.obs_helper._build_obs(self._model, self._data)
+                )
 
         if not self._recompute_action_per_step:
-            cur_obs = self._create_observation(self.obs_helper._build_obs(self._model, self._data))
+            cur_obs = self._create_observation(
+                self.obs_helper._build_obs(self._model, self._data)
+            )
 
         self._step_finalize()
 
         absorbing = self.is_absorbing(cur_obs)
         reward = self.reward(self._obs, action, cur_obs, absorbing)
-        info = self._create_info_dictionary(cur_obs)
+        info = self._create_info_dictionary(cur_obs, action)
 
         self._obs = cur_obs
 
@@ -161,7 +187,9 @@ class MuJoCo(Environment):
 
     def render(self, record=False):
         if self._viewer is None:
-            self._viewer = MujocoViewer(self._model, self.dt, record=record, **self._viewer_params)
+            self._viewer = MujocoViewer(
+                self._model, self.dt, record=record, **self._viewer_params
+            )
 
         return self._viewer.render(self._data, record)
 
@@ -199,12 +227,13 @@ class MuJoCo(Environment):
         """
         return obs
 
-    def _create_info_dictionary(self, obs):
+    def _create_info_dictionary(self, obs, action):
         """
         This method can be overridden to create a custom info dictionary.
 
         Args:
             obs (np.ndarray): the generated observation
+            action (np.ndarray): the action taken
 
         Returns:
             The information dictionary.
@@ -305,7 +334,9 @@ class MuJoCo(Environment):
 
         """
         data_id, otype = self.additional_data[name]
-        return np.array(self.obs_helper.get_state(self._model, self._data, data_id, otype))
+        return np.array(
+            self.obs_helper.get_state(self._model, self._data, data_id, otype)
+        )
 
     def _write_data(self, name, value):
         """
@@ -324,7 +355,9 @@ class MuJoCo(Environment):
         elif otype == ObservationType.JOINT_VEL:
             self._data.joint(data_id).qvel = value
         else:
-            data_buffer = self.obs_helper.get_state(self._model, self._data, data_id, otype)
+            data_buffer = self.obs_helper.get_state(
+                self._model, self._data, data_id, otype
+            )
             data_buffer[:] = value
 
     def _check_collision(self, group1, group2):
@@ -381,11 +414,14 @@ class MuJoCo(Environment):
         for con_i in range(0, self._data.ncon):
             con = self._data.contact[con_i]
 
-            if (con.geom1 in ids1 and con.geom2 in ids2 or
-               con.geom1 in ids2 and con.geom2 in ids1):
+            if (
+                con.geom1 in ids1
+                and con.geom2 in ids2
+                or con.geom1 in ids2
+                and con.geom2 in ids1
+            ):
 
-                mujoco.mj_contactForce(self._model, self._data,
-                                       con_i, c_array)
+                mujoco.mj_contactForce(self._model, self._data, con_i, c_array)
                 return c_array
 
         return c_array
@@ -478,7 +514,7 @@ class MuJoCo(Environment):
          Returns:
              A bounding box for the action space.
 
-         """
+        """
         low = []
         high = []
         for index in action_indices:
@@ -500,14 +536,14 @@ class MuJoCo(Environment):
             warning: Mujoco warning.
 
         """
-        if 'Pre-allocated constraint buffer is full' in warning:
-            raise RuntimeError(warning + 'Increase njmax in mujoco XML')
-        elif 'Pre-allocated contact buffer is full' in warning:
-            raise RuntimeError(warning + 'Increase njconmax in mujoco XML')
-        elif 'Unknown warning type' in warning:
-            raise RuntimeError(warning + 'Check for NaN in simulation.')
+        if "Pre-allocated constraint buffer is full" in warning:
+            raise RuntimeError(warning + "Increase njmax in mujoco XML")
+        elif "Pre-allocated contact buffer is full" in warning:
+            raise RuntimeError(warning + "Increase njconmax in mujoco XML")
+        elif "Unknown warning type" in warning:
+            raise RuntimeError(warning + "Check for NaN in simulation.")
         else:
-            raise RuntimeError('Got MuJoCo Warning: ' + warning)
+            raise RuntimeError("Got MuJoCo Warning: " + warning)
 
     @staticmethod
     def load_model(xml_file):
@@ -523,8 +559,9 @@ class MuJoCo(Environment):
         """
         if type(xml_file) == mjcf.element.RootElement:
             # load from xml handle
-            model = mujoco.MjModel.from_xml_string(xml=xml_file.to_xml_string(),
-                                                   assets=xml_file.get_assets())
+            model = mujoco.MjModel.from_xml_string(
+                xml=xml_file.to_xml_string(), assets=xml_file.get_assets()
+            )
         elif type(xml_file) == str:
             # load from path
             model = mujoco.MjModel.from_xml_path(xml_file)
@@ -542,9 +579,22 @@ class MultiMuJoCo(MuJoCo):
 
     """
 
-    def __init__(self, xml_files, actuation_spec, observation_spec, gamma, horizon, timestep=None,
-                 n_substeps=1, n_intermediate_steps=1, additional_data_spec=None, collision_groups=None,
-                 max_joint_vel=None, random_env_reset=True, **viewer_params):
+    def __init__(
+        self,
+        xml_files,
+        actuation_spec,
+        observation_spec,
+        gamma,
+        horizon,
+        timestep=None,
+        n_substeps=1,
+        n_intermediate_steps=1,
+        additional_data_spec=None,
+        collision_groups=None,
+        max_joint_vel=None,
+        random_env_reset=True,
+        **viewer_params,
+    ):
         """
         Constructor.
 
@@ -603,7 +653,9 @@ class MultiMuJoCo(MuJoCo):
 
         # Read the actuation spec and build the mapping between actions and ids
         # as well as their limits
-        self._action_indices = self.get_action_indices(self._model, self._data, actuation_spec)
+        self._action_indices = self.get_action_indices(
+            self._model, self._data, actuation_spec
+        )
 
         action_space = self.get_action_space(self._action_indices, self._model)
 
@@ -611,17 +663,27 @@ class MultiMuJoCo(MuJoCo):
         for m, d in zip(self._models, self._datas):
             action_ind = self.get_action_indices(m, d, actuation_spec)
             action_sp = self.get_action_space(action_ind, m)
-            if not np.array_equal(action_ind, self._action_indices) or \
-                    not np.array_equal(action_space.low, action_sp.low) or\
-                    not np.array_equal(action_space.high, action_sp.high):
-                raise ValueError("The provided environments differ in the their action spaces. "
-                                 "This is not allowed.")
+            if (
+                not np.array_equal(action_ind, self._action_indices)
+                or not np.array_equal(action_space.low, action_sp.low)
+                or not np.array_equal(action_space.high, action_sp.high)
+            ):
+                raise ValueError(
+                    "The provided environments differ in the their action spaces. "
+                    "This is not allowed."
+                )
 
         # Read the observation spec to build a mapping at every step. It is
         # ensured that the values appear in the order they are specified.
-        self.obs_helpers = [ObservationHelper(observation_spec, self._model, self._data,
-                                              max_joint_velocity=max_joint_vel)
-                            for m, d in zip(self._models, self._datas)]
+        self.obs_helpers = [
+            ObservationHelper(
+                observation_spec,
+                self._model,
+                self._data,
+                max_joint_velocity=max_joint_vel,
+            )
+            for m, d in zip(self._models, self._datas)
+        ]
         self.obs_helper = self.obs_helpers[self._current_model_idx]
 
         observation_space = Box(*self.obs_helper.get_obs_limits())
@@ -629,9 +691,13 @@ class MultiMuJoCo(MuJoCo):
         # multi envs with different obs limits are now allowed, do sanity check
         for oh in self.obs_helpers:
             low, high = self.obs_helper.get_obs_limits()
-            if not np.array_equal(low, observation_space.low) or not np.array_equal(high, observation_space.high):
-                raise ValueError("The provided environments differ in the their observation limits. "
-                                 "This is not allowed.")
+            if not np.array_equal(low, observation_space.low) or not np.array_equal(
+                high, observation_space.high
+            ):
+                raise ValueError(
+                    "The provided environments differ in the their observation limits. "
+                    "This is not allowed."
+                )
 
         # Pre-process the additional data to allow easier writing and reading
         # to and from arrays in MuJoCo
@@ -646,8 +712,12 @@ class MultiMuJoCo(MuJoCo):
             for name, geom_names in collision_groups:
                 col_group = list()
                 for geom_name in geom_names:
-                    mj_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_GEOM, geom_name)
-                    assert mj_id != -1, f"geom \"{geom_name}\" not found! Can't be used for collision-checking."
+                    mj_id = mujoco.mj_name2id(
+                        self._model, mujoco.mjtObj.mjOBJ_GEOM, geom_name
+                    )
+                    assert (
+                        mj_id != -1
+                    ), f'geom "{geom_name}" not found! Can\'t be used for collision-checking.'
                     col_group.append(mj_id)
                 self.collision_groups[name] = set(col_group)
 
@@ -676,8 +746,11 @@ class MultiMuJoCo(MuJoCo):
         if self._random_env_reset:
             self._current_model_idx = np.random.randint(0, len(self._models))
         else:
-            self._current_model_idx = self._current_model_idx + 1 \
-                if self._current_model_idx < len(self._models) - 1 else 0
+            self._current_model_idx = (
+                self._current_model_idx + 1
+                if self._current_model_idx < len(self._models) - 1
+                else 0
+            )
 
         self._model = self._models[self._current_model_idx]
         self._data = self._datas[self._current_model_idx]
@@ -687,7 +760,9 @@ class MultiMuJoCo(MuJoCo):
         if self._viewer is not None and self.more_than_one_env:
             self._viewer.load_new_model(self._model)
 
-        self._obs = self._create_observation(self.obs_helper._build_obs(self._model, self._data))
+        self._obs = self._create_observation(
+            self.obs_helper._build_obs(self._model, self._data)
+        )
         return self._modify_observation(self._obs)
 
     @property
@@ -708,11 +783,11 @@ class MultiMuJoCo(MuJoCo):
 
         """
         n_models = np.maximum(n_models, 2)
-        bits_needed = 1+int(np.log((n_models-1))/np.log(2))
+        bits_needed = 1 + int(np.log((n_models - 1)) / np.log(2))
         id_mask = np.zeros(bits_needed)
         bin_rep = np.binary_repr(current_model_idx)[::-1]
         for i, b in enumerate(bin_rep):
-            idx = bits_needed - 1 - i   # reverse idx
+            idx = bits_needed - 1 - i  # reverse idx
             if int(b):
                 id_mask[idx] = 1.0
             else:
